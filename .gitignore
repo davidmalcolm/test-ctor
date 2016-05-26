@@ -1,4 +1,6 @@
 *.o
 *.a
-test-*
+test-1
+test-2a
+test-2b
 *~

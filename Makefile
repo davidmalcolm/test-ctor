@@ -4,6 +4,7 @@ clean:
 	-rm a.out
 	-rm *.o
 	-rm *.a
+	-rm test-1 test-2a test-2b
 
 ############################################################################
 # test-1: Link test-ctor.o directly into the executable, without consuming
