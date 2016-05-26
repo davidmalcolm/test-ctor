@@ -1,4 +1,39 @@
-Minimal reproducer for problem seen here:
+Constructors for static objects in files that are linked directly get run
+before main, but if we link them into an archive (libbackend.a in the gcc
+example, libtestctor.a here), then they only get linked and run if there is
+some symbol consumed by the rest of the executable::
+
+  # test-1: test-ctor.o is linked directly into the executable, without consuming
+  # any symbols from it.
+
+  $ ./test-1
+  foo:foo(test-ctor.C, static foo in emptyish file)
+  foo:foo(test-ctor.C, foo in anon ns in emptyish file)
+  foo:foo(test-ctor-main.C, static foo in main file)
+  foo:foo(test-ctor-main.C, foo in anon ns in main file)
+  main()
+
+  # test-2a: test-ctor.o is linked indirectly, via a .a archive, with
+  # main consuming a symbol from test-ctor.o.
+
+  $ ./test-2a
+  foo:foo(test-ctor-main.C, static foo in main file)
+  foo:foo(test-ctor-main.C, foo in anon ns in main file)
+  foo:foo(test-ctor.C, static foo in emptyish file)
+  foo:foo(test-ctor.C, foo in anon ns in emptyish file)
+  main()
+
+  # test-2b: test-ctor.o is again linked indirectly, via a .a archive, but
+  # nothing else is consumed from test-ctor.o.
+
+  $ ./test-2b
+  foo:foo(test-ctor-main.C, static foo in main file)
+  foo:foo(test-ctor-main.C, foo in anon ns in main file)
+  main()
+
+Note how in test-2b, the ctors inside ``test-ctor.C`` aren't run.
+
+This is a minimal reproducer for problem seen here:
   https://gcc.gnu.org/ml/gcc-patches/2015-11/msg02377.html
 in this proposed change to ``gcc/toplev.c``::
 
@@ -23,27 +58,3 @@ in this proposed change to ``gcc/toplev.c``::
   +
   +#endif /* #if CHECKING_P */
 
-Constructors for static objects in files that are linked directly get run
-before main, but if we link them into an archive (libbackend.a in the gcc
-example, libtestctor.a here), then they only get linked and run if there is
-some symbol consumed by the rest of the executable::
-
-  make
-  ./test-1
-  foo:foo(test-ctor.C, static foo in emptyish file)
-  foo:foo(test-ctor.C, foo in anon ns in emptyish file)
-  foo:foo(test-ctor-main.C, static foo in main file)
-  foo:foo(test-ctor-main.C, foo in anon ns in main file)
-  main()
-  ./test-2a
-  foo:foo(test-ctor-main.C, static foo in main file)
-  foo:foo(test-ctor-main.C, foo in anon ns in main file)
-  foo:foo(test-ctor.C, static foo in emptyish file)
-  foo:foo(test-ctor.C, foo in anon ns in emptyish file)
-  main()
-  ./test-2b
-  foo:foo(test-ctor-main.C, static foo in main file)
-  foo:foo(test-ctor-main.C, foo in anon ns in main file)
-  main()
-
-Note how in test-2b, the ctors inside ``test-ctor.C`` aren't run.
